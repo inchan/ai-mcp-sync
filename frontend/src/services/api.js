@@ -27,11 +27,25 @@ export async function fetchMasterConfig() {
   return handleResponse(response);
 }
 
+export async function fetchRecommendedServers() {
+  const response = await fetch('/api/config/recommended');
+  return handleResponse(response);
+}
+
 export async function updateMasterConfig(settings) {
   const response = await fetch('/api/config/master', {
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({ settings })
+  });
+  return handleResponse(response);
+}
+
+export async function importRecommendedServer(serverId, enabled) {
+  const response = await fetch('/api/config/master/import', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({ server_id: serverId, enabled })
   });
   return handleResponse(response);
 }

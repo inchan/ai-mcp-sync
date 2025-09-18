@@ -3,11 +3,11 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 
 use crate::config::{
-    MasterConfigResponse, McpSettings, SyncRequest, SyncSummary, ToolConfiguration,
-    UpdateMasterRequest,
+    ImportRecommendedRequest, MasterConfigResponse, McpSettings, RecommendedServer, SyncRequest,
+    SyncSummary, ToolConfiguration, UpdateMasterRequest,
 };
 use crate::db::Database;
-use crate::error::BackendResult;
+use crate::error::{BackendError, BackendResult};
 use crate::sync;
 
 #[derive(Clone)]
@@ -23,6 +23,8 @@ pub fn router(state: AppState) -> Router {
             "/api/config/master",
             get(get_master_config).post(update_master_config),
         )
+        .route("/api/config/recommended", get(get_recommended_servers))
+        .route("/api/config/master/import", post(import_recommended_server))
         .route("/api/sync", post(sync_tools))
         .route("/api/sync/history", get(sync_history))
         .with_state(state)
@@ -63,6 +65,41 @@ async fn update_master_config(
     state.db.upsert_master_config(&payload.settings)?;
     let config = state.db.ensure_master_config()?;
     Ok(Json(config))
+}
+
+async fn get_recommended_servers(
+    State(state): State<AppState>,
+) -> BackendResult<Json<Vec<RecommendedServer>>> {
+    let servers = state.db.list_recommended_servers()?;
+    Ok(Json(servers))
+}
+
+async fn import_recommended_server(
+    State(state): State<AppState>,
+    Json(payload): Json<ImportRecommendedRequest>,
+) -> BackendResult<Json<MasterConfigResponse>> {
+    let server = state
+        .db
+        .get_recommended_server(&payload.server_id)?
+        .ok_or_else(|| {
+            BackendError::NotFound(format!("recommended server '{}'", payload.server_id))
+        })?;
+
+    let mut master = state.db.ensure_master_config()?.settings;
+    let enabled = payload.enabled.unwrap_or(server.default_enabled);
+    if let Some(existing) = master.servers.iter_mut().find(|item| item.id == server.id) {
+        let existing_api_key = existing.api_key.clone();
+        *existing = server.to_mcp_server(enabled);
+        if existing_api_key.is_some() {
+            existing.api_key = existing_api_key;
+        }
+    } else {
+        master.servers.push(server.to_mcp_server(enabled));
+    }
+
+    state.db.upsert_master_config(&master)?;
+    let updated = state.db.ensure_master_config()?;
+    Ok(Json(updated))
 }
 
 async fn sync_tools(

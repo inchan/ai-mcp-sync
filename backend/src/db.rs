@@ -4,7 +4,10 @@ use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::config::{MasterConfigResponse, McpSettings, SyncStatus, SyncSummary};
+use crate::config::{
+    default_recommended_servers, MasterConfigResponse, McpSettings, RecommendedServer, SyncStatus,
+    SyncSummary,
+};
 use crate::error::{BackendError, BackendResult};
 
 const DB_FILE: &str = "../database/mcp_sync.db";
@@ -24,6 +27,7 @@ impl Database {
             conn: Mutex::new(conn),
         };
         db.setup()?;
+        db.seed_recommended_servers()?;
         Ok(db)
     }
 
@@ -58,6 +62,47 @@ impl Database {
             )",
             [],
         )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS recommended_servers (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                endpoint TEXT NOT NULL,
+                homepage TEXT,
+                category TEXT,
+                api_key_required INTEGER NOT NULL DEFAULT 0,
+                default_enabled INTEGER NOT NULL DEFAULT 0
+            )",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn seed_recommended_servers(&self) -> BackendResult<()> {
+        let conn = self.conn.lock();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM recommended_servers", [], |row| {
+            row.get(0)
+        })?;
+        if count == 0 {
+            for server in default_recommended_servers() {
+                conn.execute(
+                    "INSERT OR IGNORE INTO recommended_servers (
+                        id, name, description, endpoint, homepage, category, api_key_required, default_enabled
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    params![
+                        server.id,
+                        server.name,
+                        server.description,
+                        server.endpoint,
+                        server.homepage,
+                        server.category,
+                        if server.api_key_required { 1 } else { 0 },
+                        if server.default_enabled { 1 } else { 0 },
+                    ],
+                )?;
+            }
+        }
         Ok(())
     }
 
@@ -187,5 +232,69 @@ impl Database {
             });
         }
         Ok(items)
+    }
+
+    pub fn list_recommended_servers(&self) -> BackendResult<Vec<RecommendedServer>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, description, endpoint, homepage, category, api_key_required, default_enabled \
+             FROM recommended_servers ORDER BY name",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(RecommendedServer {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                description: row.get(2)?,
+                endpoint: row.get(3)?,
+                homepage: row.get(4)?,
+                category: row.get(5)?,
+                api_key_required: {
+                    let value: i64 = row.get(6)?;
+                    value != 0
+                },
+                default_enabled: {
+                    let value: i64 = row.get(7)?;
+                    value != 0
+                },
+            })
+        })?;
+        let mut servers = Vec::new();
+        for row in rows {
+            servers.push(row?);
+        }
+        Ok(servers)
+    }
+
+    pub fn get_recommended_server(
+        &self,
+        server_id: &str,
+    ) -> BackendResult<Option<RecommendedServer>> {
+        let conn = self.conn.lock();
+        let row = conn
+            .query_row(
+                "SELECT id, name, description, endpoint, homepage, category, api_key_required, default_enabled \
+                 FROM recommended_servers WHERE id = ?",
+                params![server_id],
+                |row| {
+                    Ok(RecommendedServer {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        description: row.get(2)?,
+                        endpoint: row.get(3)?,
+                        homepage: row.get(4)?,
+                        category: row.get(5)?,
+                        api_key_required: {
+                            let value: i64 = row.get(6)?;
+                            value != 0
+                        },
+                        default_enabled: {
+                            let value: i64 = row.get(7)?;
+                            value != 0
+                        },
+                    })
+                },
+            )
+            .optional()?;
+        Ok(row)
     }
 }

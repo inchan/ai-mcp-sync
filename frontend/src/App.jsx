@@ -1,14 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { fetchMasterConfig, fetchSyncHistory, fetchTools, rescanTools, syncTools, updateMasterConfig } from './services/api.js';
+import {
+  fetchMasterConfig,
+  fetchRecommendedServers,
+  fetchSyncHistory,
+  fetchTools,
+  importRecommendedServer,
+  rescanTools,
+  syncTools,
+  updateMasterConfig
+} from './services/api.js';
 import ToolList from './components/ToolList.jsx';
 import MasterConfigEditor from './components/MasterConfigEditor.jsx';
 import SyncHistory from './components/SyncHistory.jsx';
+import RecommendedServerList from './components/RecommendedServerList.jsx';
 
 const App = () => {
   const [tools, setTools] = useState([]);
   const [masterConfig, setMasterConfig] = useState(null);
   const [masterConfigDraft, setMasterConfigDraft] = useState('');
   const [history, setHistory] = useState([]);
+  const [recommendedServers, setRecommendedServers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -20,15 +31,17 @@ const App = () => {
   const bootstrap = async () => {
     try {
       setLoading(true);
-      const [toolList, master, historyItems] = await Promise.all([
+      const [toolList, master, historyItems, recommended] = await Promise.all([
         fetchTools(),
         fetchMasterConfig(),
-        fetchSyncHistory()
+        fetchSyncHistory(),
+        fetchRecommendedServers()
       ]);
       setTools(toolList);
       setMasterConfig(master);
       setMasterConfigDraft(JSON.stringify(master.settings, null, 2));
       setHistory(historyItems);
+      setRecommendedServers(recommended);
     } catch (err) {
       console.error(err);
       setError('초기 데이터를 불러오는데 실패했습니다. 백엔드 서버가 실행 중인지 확인해주세요.');
@@ -90,10 +103,28 @@ const App = () => {
       const parsed = JSON.parse(masterConfigDraft);
       const updated = await updateMasterConfig(parsed);
       setMasterConfig(updated);
+      setMasterConfigDraft(JSON.stringify(updated.settings, null, 2));
       setSuccessMessage('마스터 구성을 저장했습니다.');
     } catch (err) {
       console.error(err);
       setError('마스터 구성 저장에 실패했습니다. JSON 형식을 확인해주세요.');
+    }
+  };
+
+  const handleImportRecommended = async (serverId, enabled) => {
+    setError('');
+    setSuccessMessage('');
+    try {
+      setLoading(true);
+      const updated = await importRecommendedServer(serverId, enabled);
+      setMasterConfig(updated);
+      setMasterConfigDraft(JSON.stringify(updated.settings, null, 2));
+      setSuccessMessage('추천 서버를 마스터 구성에 추가했습니다.');
+    } catch (err) {
+      console.error(err);
+      setError('추천 서버를 추가하는 데 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -104,6 +135,11 @@ const App = () => {
       return acc;
     }, {});
   }, [masterConfig, tools]);
+
+  const masterServerIds = useMemo(() => {
+    if (!masterConfig) return new Set();
+    return new Set(masterConfig.settings.servers.map((server) => server.id));
+  }, [masterConfig]);
 
   return (
     <div className="app">
@@ -120,6 +156,17 @@ const App = () => {
             draft={masterConfigDraft}
             onChange={setMasterConfigDraft}
             onSave={handleMasterConfigSave}
+          />
+        </section>
+
+        <section className="panel">
+          <h2>추천 MCP 서버</h2>
+          <p className="panel-subtitle">문서에서 제안하는 주요 서버를 빠르게 추가할 수 있습니다.</p>
+          <RecommendedServerList
+            servers={recommendedServers}
+            installedServerIds={masterServerIds}
+            onImport={handleImportRecommended}
+            loading={loading}
           />
         </section>
 
