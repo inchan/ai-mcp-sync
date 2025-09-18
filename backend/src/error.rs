@@ -13,6 +13,8 @@ pub enum BackendError {
     SerdeJson(#[from] serde_json::Error),
     #[error("configuration not found")]
     ConfigNotFound,
+    #[error("not found: {0}")]
+    NotFound(String),
     #[error("other error: {0}")]
     Other(String),
 }
@@ -29,6 +31,7 @@ impl IntoResponse for BackendError {
             BackendError::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
             BackendError::SerdeJson(_) => StatusCode::BAD_REQUEST,
             BackendError::ConfigNotFound => StatusCode::NOT_FOUND,
+            BackendError::NotFound(_) => StatusCode::NOT_FOUND,
             BackendError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 

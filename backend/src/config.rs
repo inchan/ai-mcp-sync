@@ -35,6 +35,33 @@ pub struct McpSettings {
     pub project_overrides: Vec<ProjectOverride>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RecommendedServer {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub endpoint: String,
+    pub homepage: Option<String>,
+    pub category: Option<String>,
+    #[serde(default)]
+    pub api_key_required: bool,
+    #[serde(default)]
+    pub default_enabled: bool,
+}
+
+impl RecommendedServer {
+    pub fn to_mcp_server(&self, enabled: bool) -> McpServer {
+        McpServer {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            description: self.description.clone(),
+            endpoint: self.endpoint.clone(),
+            api_key: None,
+            enabled,
+        }
+    }
+}
+
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ProjectOverride {
@@ -97,4 +124,56 @@ pub struct UpdateMasterRequest {
 pub struct MasterConfigResponse {
     pub settings: McpSettings,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportRecommendedRequest {
+    pub server_id: String,
+    #[serde(default)]
+    pub enabled: Option<bool>,
+}
+
+pub fn default_recommended_servers() -> Vec<RecommendedServer> {
+    vec![
+        RecommendedServer {
+            id: "default".to_string(),
+            name: "Default MCP Server".to_string(),
+            description: Some("로컬 개발용 기본 MCP 서버".to_string()),
+            endpoint: "http://localhost:3001".to_string(),
+            homepage: None,
+            category: Some("로컬".to_string()),
+            api_key_required: false,
+            default_enabled: true,
+        },
+        RecommendedServer {
+            id: "anthropic".to_string(),
+            name: "Anthropic MCP".to_string(),
+            description: Some("Claude 및 엔터프라이즈 워크플로우용 공식 MCP".to_string()),
+            endpoint: "https://api.anthropic.com/mcp".to_string(),
+            homepage: Some("https://docs.anthropic.com".to_string()),
+            category: Some("클라우드".to_string()),
+            api_key_required: true,
+            default_enabled: false,
+        },
+        RecommendedServer {
+            id: "openai".to_string(),
+            name: "OpenAI MCP".to_string(),
+            description: Some("GPT 기반 자동화 및 도구 연동에 적합".to_string()),
+            endpoint: "https://api.openai.com/v1/mcp".to_string(),
+            homepage: Some("https://platform.openai.com/docs".to_string()),
+            category: Some("클라우드".to_string()),
+            api_key_required: true,
+            default_enabled: false,
+        },
+        RecommendedServer {
+            id: "openrouter".to_string(),
+            name: "OpenRouter Community MCP".to_string(),
+            description: Some("여러 LLM 공급자를 하나로 통합한 커뮤니티 MCP".to_string()),
+            endpoint: "https://api.openrouter.ai/mcp".to_string(),
+            homepage: Some("https://openrouter.ai".to_string()),
+            category: Some("커뮤니티".to_string()),
+            api_key_required: true,
+            default_enabled: false,
+        },
+    ]
 }
