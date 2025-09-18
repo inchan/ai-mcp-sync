@@ -1,0 +1,228 @@
+:root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  background-color: #0f172a;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+header {
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2.5rem;
+  color: #38bdf8;
+}
+
+header p {
+  margin: 0;
+  color: #94a3b8;
+}
+
+main {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.panel {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(8, 47, 73, 0.4);
+}
+
+.panel h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  color: #f8fafc;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.panel-actions button {
+  margin-left: 0.5rem;
+}
+
+.master-config textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  font-family: 'Fira Code', 'Roboto Mono', monospace;
+  font-size: 0.9rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: none;
+  background: #1d4ed8;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+button:disabled {
+  background: rgba(30, 64, 175, 0.5);
+  cursor: not-allowed;
+}
+
+button.primary {
+  margin-top: 1rem;
+  background: #22c55e;
+}
+
+button.primary:hover {
+  background: #16a34a;
+}
+
+.tool-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tool-table th,
+.tool-table td {
+  text-align: left;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.tool-table tbody tr:hover {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.tool-table code {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.85rem;
+  background: rgba(148, 163, 184, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pill-success {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.history-item {
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.history-item strong {
+  color: #38bdf8;
+}
+
+.history-item .status {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5f5;
+  font-size: 0.75rem;
+}
+
+.history-item.status-updated {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.history-item.status-skipped {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.history-item.status-failed {
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.empty {
+  color: #94a3b8;
+}
+
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.4);
+  font-weight: 600;
+}
+
+.toast.success {
+  background: rgba(34, 197, 94, 0.2);
+  color: #bbf7d0;
+}
+
+.toast.error {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fecaca;
+}
+
+@media (max-width: 768px) {
+  .app {
+    padding: 1rem;
+  }
+
+  .panel {
+    padding: 1rem;
+  }
+
+  .tool-table th,
+  .tool-table td {
+    padding: 0.5rem;
+  }
+
+  button {
+    margin-top: 0.5rem;
+  }
+}
