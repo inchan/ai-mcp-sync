@@ -1,0 +1,27 @@
+{
+  "servers": [
+    {
+      "id": "default",
+      "name": "Default MCP Server",
+      "description": "Fallback local MCP server",
+      "endpoint": "http://localhost:3001",
+      "api_key": null,
+      "enabled": false
+    },
+    {
+      "id": "beta",
+      "name": "Beta MCP",
+      "description": "Staging environment",
+      "endpoint": "https://beta.mcp.dev",
+      "api_key": "secret",
+      "enabled": true
+    }
+  ],
+  "project_overrides": [
+    {
+      "project": "internal-tools",
+      "server_id": "beta",
+      "last_synced_at": null
+    }
+  ]
+}

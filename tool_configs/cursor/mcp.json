@@ -1,0 +1,13 @@
+{
+  "servers": [
+    {
+      "id": "default",
+      "name": "Default MCP Server",
+      "description": "Fallback local MCP server",
+      "endpoint": "http://localhost:3001",
+      "api_key": null,
+      "enabled": true
+    }
+  ],
+  "project_overrides": []
+}
