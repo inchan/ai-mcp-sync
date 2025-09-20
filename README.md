@@ -34,7 +34,31 @@ cargo run --manifest-path backend/Cargo.toml
 
 서버는 기본적으로 `http://localhost:8080`에서 실행됩니다.
 
-### 2. 프런트엔드 실행
+### 2. CLI (`agentctl`) 활용
+
+디자인 문서에서 제시한 CLI 플로우를 그대로 사용할 수 있도록 `agentctl` 바이너리를 제공합니다. 백엔드와 동일한 SQLite DB와 파일 시스템을 공유하므로 GUI 없이도 동기화 작업을 수행할 수 있습니다.
+
+```bash
+# 설치된 도구 재검색
+cargo run --manifest-path backend/Cargo.toml --bin agentctl -- scan
+
+# 도구 상태 요약
+cargo run --manifest-path backend/Cargo.toml --bin agentctl -- list
+
+# 추천 MCP 서버 조회
+cargo run --manifest-path backend/Cargo.toml --bin agentctl -- rules list
+
+# 추천 서버 적용 + 에이전트 동기화
+cargo run --manifest-path backend/Cargo.toml --bin agentctl -- apply --rule anthropic --agent claude
+
+# 마스터 구성으로 전체 동기화
+cargo run --manifest-path backend/Cargo.toml --bin agentctl -- sync
+
+# 특정 서버 활성/비활성 토글
+cargo run --manifest-path backend/Cargo.toml --bin agentctl -- feature toggle --agent claude --key anthropic --on
+```
+
+### 3. 프런트엔드 실행
 
 ```bash
 cd frontend
