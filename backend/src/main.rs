@@ -1,20 +1,14 @@
-mod api;
-mod config;
-mod db;
-mod error;
-mod sync;
-
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use api::{router, AppState};
 use axum::Router;
+use backend::api::{router, AppState};
+use backend::db::Database;
+use backend::error::BackendError;
+use backend::sync;
 use tokio::net::TcpListener;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
-
-use crate::db::Database;
-use crate::error::BackendError;
 
 #[tokio::main]
 async fn main() -> Result<(), BackendError> {
