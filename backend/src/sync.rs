@@ -1,10 +1,11 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
 use chrono::Utc;
 use walkdir::WalkDir;
 
-use crate::config::{McpSettings, SyncStatus, SyncSummary, ToolConfiguration};
+use crate::config::{McpSettings, ProjectOverride, SyncStatus, SyncSummary, ToolConfiguration};
 use crate::db::Database;
 use crate::error::BackendResult;
 
@@ -91,31 +92,35 @@ pub fn merge_settings(master: &McpSettings, tool: &McpSettings) -> McpSettings {
     }
 
     let mut merged = master.clone();
-    let master_ids: Vec<_> = master.servers.iter().map(|s| s.id.clone()).collect();
+    let mut known_servers: HashSet<_> = merged
+        .servers
+        .iter()
+        .map(|server| server.id.clone())
+        .collect();
 
     for server in &tool.servers {
-        if !master_ids.contains(&server.id) {
+        if known_servers.insert(server.id.clone()) {
             merged.servers.push(server.clone());
         }
     }
 
-    merged.project_overrides = merge_project_overrides(master, &tool.project_overrides);
+    merged.project_overrides =
+        merge_project_overrides(&master.project_overrides, &tool.project_overrides);
     merged
 }
 
 fn merge_project_overrides(
-    master: &McpSettings,
-    overrides: &[crate::config::ProjectOverride],
-) -> Vec<crate::config::ProjectOverride> {
-    let mut merged = master.project_overrides.clone();
+    master_overrides: &[ProjectOverride],
+    overrides: &[ProjectOverride],
+) -> Vec<ProjectOverride> {
+    let mut merged = master_overrides.to_vec();
+    let mut seen: HashSet<_> = merged.iter().map(|item| item.project.clone()).collect();
+
     for override_entry in overrides {
-        if merged
-            .iter()
-            .any(|item| item.project == override_entry.project)
-        {
-            continue;
+        if seen.insert(override_entry.project.clone()) {
+            merged.push(override_entry.clone());
         }
-        merged.push(override_entry.clone());
     }
+
     merged
 }
