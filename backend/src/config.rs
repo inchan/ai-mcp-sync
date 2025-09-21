@@ -35,6 +35,18 @@ pub struct McpSettings {
     pub project_overrides: Vec<ProjectOverride>,
 }
 
+impl McpSettings {
+    pub fn apply_recommended_server(&mut self, server: &RecommendedServer, enabled: bool) {
+        if let Some(existing) = self.servers.iter_mut().find(|item| item.id == server.id) {
+            let existing_api_key = existing.api_key.clone();
+            *existing = server.to_mcp_server(enabled);
+            existing.api_key = existing_api_key;
+        } else {
+            self.servers.push(server.to_mcp_server(enabled));
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RecommendedServer {
     pub id: String,

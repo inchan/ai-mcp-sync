@@ -9,7 +9,6 @@ use backend::config::{
 };
 use backend::db::Database;
 use backend::sync;
-use chrono::Utc;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
@@ -220,7 +219,7 @@ fn handle_apply(db: &Database, args: ApplyArgs) -> Result<()> {
 
     let mut master = db.ensure_master_config()?.settings;
     let enabled = args.enabled.unwrap_or(server.default_enabled);
-    upsert_server_into_master(&mut master, &server, enabled);
+    master.apply_recommended_server(&server, enabled);
     db.upsert_master_config(&master)?;
     println!("'{}' 서버를 마스터 구성에 적용했습니다.", server.name);
 
@@ -231,20 +230,16 @@ fn handle_apply(db: &Database, args: ApplyArgs) -> Result<()> {
 }
 
 fn handle_sync(db: &Database, args: SyncArgs) -> Result<()> {
+    let SyncArgs { agent } = args;
     let master = db.ensure_master_config()?;
-    let mut summaries = Vec::new();
+    let mut entries = db.list_tools()?;
 
-    let entries = match args.agent {
-        Some(ref agent) => db
-            .list_tools()?
-            .into_iter()
-            .filter(|(name, _)| name == agent)
-            .collect::<Vec<_>>(),
-        None => db.list_tools()?,
-    };
+    if let Some(ref target) = agent {
+        entries.retain(|(name, _)| name == target);
+    }
 
     if entries.is_empty() {
-        if let Some(agent) = args.agent {
+        if let Some(agent) = agent {
             println!("'{}' 이름의 도구가 없습니다.", agent);
         } else {
             println!("동기화할 도구가 없습니다. 먼저 'agentctl scan'을 실행하세요.");
@@ -253,13 +248,8 @@ fn handle_sync(db: &Database, args: SyncArgs) -> Result<()> {
     }
 
     for (name, path) in entries {
-        let settings = sync::read_settings_from_file(&path)?;
-        let config = ToolConfiguration::new(name.clone(), path.to_string_lossy(), settings);
+        let config = build_tool_configuration(name, path)?;
         let summary = sync::sync_tool(&config, &master.settings, db)?;
-        summaries.push(summary);
-    }
-
-    for summary in summaries {
         print_sync_summary(&summary, false);
     }
 
@@ -330,20 +320,23 @@ fn handle_feature_toggle(db: &Database, args: FeatureToggleArgs) -> Result<()> {
 fn load_tool_configs(db: &Database) -> Result<Vec<ToolConfiguration>> {
     let mut tools = Vec::new();
     for (name, path) in db.list_tools()? {
-        let settings = match sync::read_settings_from_file(&path) {
-            Ok(settings) => settings,
+        match build_tool_configuration(name.clone(), path) {
+            Ok(tool) => tools.push(tool),
             Err(err) => {
                 eprintln!("⚠️  {} 의 설정을 불러오는 데 실패했습니다: {}", name, err);
-                continue;
             }
-        };
-        tools.push(ToolConfiguration::new(
-            name.clone(),
-            path.to_string_lossy(),
-            settings,
-        ));
+        }
     }
     Ok(tools)
+}
+
+fn build_tool_configuration(name: String, path: PathBuf) -> Result<ToolConfiguration> {
+    let settings = sync::read_settings_from_file(&path)?;
+    Ok(ToolConfiguration::new(
+        name,
+        path.to_string_lossy(),
+        settings,
+    ))
 }
 
 fn read_from_path_or_stdin(path: &PathBuf) -> Result<String> {
@@ -386,18 +379,6 @@ fn print_recommended(rule: &RecommendedServer) {
     );
 }
 
-fn upsert_server_into_master(master: &mut McpSettings, server: &RecommendedServer, enabled: bool) {
-    if let Some(existing) = master.servers.iter_mut().find(|item| item.id == server.id) {
-        let existing_api_key = existing.api_key.clone();
-        *existing = server.to_mcp_server(enabled);
-        if let Some(api_key) = existing_api_key {
-            existing.api_key = Some(api_key);
-        }
-    } else {
-        master.servers.push(server.to_mcp_server(enabled));
-    }
-}
-
 fn sync_tool_for_agent(
     db: &Database,
     agent: &str,
@@ -409,8 +390,7 @@ fn sync_tool_for_agent(
         .find(|(name, _)| name == agent)
         .ok_or_else(|| anyhow!("'{}' 이름의 도구를 찾을 수 없습니다.", agent))?;
 
-    let settings = sync::read_settings_from_file(&path)?;
-    let config = ToolConfiguration::new(name.clone(), path.to_string_lossy(), settings);
+    let config = build_tool_configuration(name, path)?;
     let summary = sync::sync_tool(&config, &master.settings, db)?;
     Ok(summary)
 }
@@ -449,29 +429,27 @@ fn describe_diff(master: &McpSettings, tool: &McpSettings) -> Option<String> {
 }
 
 fn print_sync_summary(summary: &SyncSummary, include_timestamp: bool) {
-    let status = match summary.status {
-        SyncStatus::Updated => "업데이트",
-        SyncStatus::Skipped => "동일",
-        SyncStatus::Failed => "실패",
-    };
     if include_timestamp {
         println!(
             "[{}] {} :: {}",
-            summary.synced_at.with_timezone(&Utc).to_rfc3339(),
+            summary.synced_at.to_rfc3339(),
             summary.tool,
             summary.message
         );
     } else {
         println!("{} :: {}", summary.tool, summary.message);
     }
-    println!("  상태: {}", status);
+    println!("  상태: {}", status_label(&summary.status));
 }
 
 fn format_status(summary: &SyncSummary) -> String {
-    let label = match summary.status {
+    format!("{} - {}", status_label(&summary.status), summary.message)
+}
+
+fn status_label(status: &SyncStatus) -> &'static str {
+    match status {
         SyncStatus::Updated => "업데이트",
         SyncStatus::Skipped => "동일",
         SyncStatus::Failed => "실패",
-    };
-    format!("{} - {}", label, summary.message)
+    }
 }

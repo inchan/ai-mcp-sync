@@ -24,108 +24,124 @@ const App = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  useEffect(() => {
-    bootstrap();
-  }, []);
-
-  const bootstrap = async () => {
-    try {
-      setLoading(true);
-      const [toolList, master, historyItems, recommended] = await Promise.all([
-        fetchTools(),
-        fetchMasterConfig(),
-        fetchSyncHistory(),
-        fetchRecommendedServers()
-      ]);
-      setTools(toolList);
-      setMasterConfig(master);
-      setMasterConfigDraft(JSON.stringify(master.settings, null, 2));
-      setHistory(historyItems);
-      setRecommendedServers(recommended);
-    } catch (err) {
-      console.error(err);
-      setError('초기 데이터를 불러오는데 실패했습니다. 백엔드 서버가 실행 중인지 확인해주세요.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRescan = async () => {
+  const runTask = async (
+    task,
+    { onSuccess, successMessage: successText, errorMessage } = {}
+  ) => {
     setError('');
     setSuccessMessage('');
+    setLoading(true);
     try {
-      setLoading(true);
-      const scanned = await rescanTools();
-      setTools(scanned);
-      setSuccessMessage(`${scanned.length}개의 도구 구성을 다시 불러왔습니다.`);
-    } catch (err) {
-      console.error(err);
-      setError('도구 재검색에 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSync = async (toolName) => {
-    setError('');
-    setSuccessMessage('');
-    try {
-      setLoading(true);
-      const summaries = await syncTools(toolName);
-      setSuccessMessage('동기화가 완료되었습니다.');
-      setHistory(await fetchSyncHistory());
-      if (!toolName) {
-        const refreshed = await fetchTools();
-        setTools(refreshed);
-      } else {
-        setTools((prev) =>
-          prev.map((tool) =>
-            tool.name === toolName
-              ? { ...tool, settings: masterConfig.settings }
-              : tool
-          )
-        );
+      const result = await task();
+      if (onSuccess) {
+        await onSuccess(result);
       }
-      return summaries;
+      if (successText) {
+        const message =
+          typeof successText === 'function' ? successText(result) : successText;
+        if (message) {
+          setSuccessMessage(message);
+        }
+      }
+      return result;
     } catch (err) {
       console.error(err);
-      setError('동기화 중 오류가 발생했습니다.');
+      setError(errorMessage || '요청 처리 중 오류가 발생했습니다.');
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    bootstrap();
+  }, []);
+
+  const bootstrap = async () => {
+    await runTask(
+      () =>
+        Promise.all([
+          fetchTools(),
+          fetchMasterConfig(),
+          fetchSyncHistory(),
+          fetchRecommendedServers()
+        ]),
+      {
+        onSuccess: ([toolList, master, historyItems, recommended]) => {
+          setTools(toolList);
+          setMasterConfig(master);
+          setMasterConfigDraft(JSON.stringify(master.settings, null, 2));
+          setHistory(historyItems);
+          setRecommendedServers(recommended);
+        },
+        errorMessage:
+          '초기 데이터를 불러오는데 실패했습니다. 백엔드 서버가 실행 중인지 확인해주세요.'
+      }
+    );
+  };
+
+  const handleRescan = async () => {
+    return runTask(() => rescanTools(), {
+      onSuccess: (scanned) => {
+        setTools(scanned);
+      },
+      successMessage: (scanned) => `${scanned.length}개의 도구 구성을 다시 불러왔습니다.`,
+      errorMessage: '도구 재검색에 실패했습니다.'
+    });
+  };
+
+  const handleSync = async (toolName) => {
+    const summaries = await runTask(() => syncTools(toolName), {
+      onSuccess: async () => {
+        setHistory(await fetchSyncHistory());
+        if (!toolName) {
+          const refreshed = await fetchTools();
+          setTools(refreshed);
+        } else if (masterConfig) {
+          setTools((prev) =>
+            prev.map((tool) =>
+              tool.name === toolName
+                ? { ...tool, settings: masterConfig.settings }
+                : tool
+            )
+          );
+        }
+      },
+      successMessage: '동기화가 완료되었습니다.',
+      errorMessage: '동기화 중 오류가 발생했습니다.'
+    });
+    return summaries;
+  };
+
   const handleMasterConfigSave = async () => {
-    setError('');
-    setSuccessMessage('');
-    try {
-      const parsed = JSON.parse(masterConfigDraft);
-      const updated = await updateMasterConfig(parsed);
-      setMasterConfig(updated);
-      setMasterConfigDraft(JSON.stringify(updated.settings, null, 2));
-      setSuccessMessage('마스터 구성을 저장했습니다.');
-    } catch (err) {
-      console.error(err);
-      setError('마스터 구성 저장에 실패했습니다. JSON 형식을 확인해주세요.');
-    }
+    return runTask(
+      async () => {
+        const parsed = JSON.parse(masterConfigDraft);
+        return updateMasterConfig(parsed);
+      },
+      {
+        onSuccess: (updated) => {
+          setMasterConfig(updated);
+          setMasterConfigDraft(JSON.stringify(updated.settings, null, 2));
+        },
+        successMessage: '마스터 구성을 저장했습니다.',
+        errorMessage: '마스터 구성 저장에 실패했습니다. JSON 형식을 확인해주세요.'
+      }
+    );
   };
 
   const handleImportRecommended = async (serverId, enabled) => {
-    setError('');
-    setSuccessMessage('');
-    try {
-      setLoading(true);
-      const updated = await importRecommendedServer(serverId, enabled);
-      setMasterConfig(updated);
-      setMasterConfigDraft(JSON.stringify(updated.settings, null, 2));
-      setSuccessMessage('추천 서버를 마스터 구성에 추가했습니다.');
-    } catch (err) {
-      console.error(err);
-      setError('추천 서버를 추가하는 데 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
+    return runTask(
+      () => importRecommendedServer(serverId, enabled),
+      {
+        onSuccess: (updated) => {
+          setMasterConfig(updated);
+          setMasterConfigDraft(JSON.stringify(updated.settings, null, 2));
+        },
+        successMessage: '추천 서버를 마스터 구성에 추가했습니다.',
+        errorMessage: '추천 서버를 추가하는 데 실패했습니다.'
+      }
+    );
   };
 
   const diffByTool = useMemo(() => {

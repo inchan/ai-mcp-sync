@@ -87,15 +87,7 @@ async fn import_recommended_server(
 
     let mut master = state.db.ensure_master_config()?.settings;
     let enabled = payload.enabled.unwrap_or(server.default_enabled);
-    if let Some(existing) = master.servers.iter_mut().find(|item| item.id == server.id) {
-        let existing_api_key = existing.api_key.clone();
-        *existing = server.to_mcp_server(enabled);
-        if existing_api_key.is_some() {
-            existing.api_key = existing_api_key;
-        }
-    } else {
-        master.servers.push(server.to_mcp_server(enabled));
-    }
+    master.apply_recommended_server(&server, enabled);
 
     state.db.upsert_master_config(&master)?;
     let updated = state.db.ensure_master_config()?;
