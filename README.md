@@ -85,4 +85,4 @@ Vite 개발 서버는 `http://localhost:5173`에서 실행되며, `/api` 요청�
 - 프런트엔드: React 18, Vite, Fetch API
 - 데이터베이스: SQLite (자동 생성)
 
-자세한 요구사항은 [`prd.md`](./prd.md), [`trd.md`](./trd.md), [`user-journey.md`](./user-journey.md) 문서를 참고하세요.
+자세한 설계와 요구사항은 [`docs/mcp-sync-overview.md`](./docs/mcp-sync-overview.md)에서 확인할 수 있습니다.
